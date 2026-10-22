@@ -113,6 +113,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setNeedsProfile(false)
       setPendingSignup(null)
     } catch (e) {
+      if (isPermissionDenied(e)) {
+        // The security rules refused the teacher profile, which means this
+        // address is not on the teacher allowlist. Roll the login back so the
+        // user is not stranded on a half-created account.
+        await fbSignOut(auth).catch(() => {})
+        setError(
+          'This email is not registered as a teacher. Ask the app owner to add it, ' +
+            'or sign up as a student with your class code.',
+        )
+        throw e
+      }
       setError(authErrorMessage(e))
       throw e
     } finally {
@@ -200,6 +211,12 @@ export function useAuth(): AuthState {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>')
   return ctx
+}
+
+/** True when a write was refused by the Firestore security rules. */
+export function isPermissionDenied(e: unknown): boolean {
+  const code = (e as { code?: string })?.code ?? ''
+  return code === 'permission-denied' || code === 'firestore/permission-denied'
 }
 
 /** Maps Firebase auth error codes to plain-language messages. */

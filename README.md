@@ -129,6 +129,37 @@ ayah bounds.
 teacher's form loads an existing day with a single `getDoc` — no index, no
 duplicate days, and re-saving updates rather than appends.
 
+## Restricting who can be a teacher
+
+The app cannot know whether someone really is a teacher — the role is chosen on
+the sign-up screen. By default **any** email can register a class (they still
+only ever see their own empty class; your students' data is never exposed).
+
+To lock registration down to known teachers, create one Firestore document:
+
+**Console → Firestore Database → Start collection → collection id `config` →
+document id `teachers` → add a field:**
+
+| Field | Type | Value |
+|---|---|---|
+| `emails` | array (strings) | `owner@example.com`, `ustadh@example.com` |
+
+Write the emails in **lowercase** — that is how Firebase normalises them.
+
+How the rule behaves (`firestore.rules` → `teacherIsAllowed`):
+
+- The document is **absent** → registration stays open (nothing breaks).
+- The document **exists** → only listed emails can create a teacher profile.
+- Existing teacher accounts are unaffected; this gates sign-up only.
+- Students are unaffected and keep joining with the class code.
+- The document is invisible to the app: it is read only inside the rules.
+
+An unlisted address that tries to sign up sees *"This email is not registered as
+a teacher"* and is signed back out rather than being left half-created.
+
+To add a teacher later, edit the array in the console. To re-open registration,
+delete the document.
+
 ## Security rules summary
 
 | Actor | Can do |
