@@ -141,13 +141,16 @@ export default function StudentDashboard() {
   const [loaded, setLoaded] = useState(false)
   const [tab, setTab] = useState<'progress' | 'history'>('progress')
 
+  const uid = profile?.uid
+
+  // Stable dependency: `profile` gets a new identity on every live snapshot.
   useEffect(() => {
-    if (!profile) return
-    return watchEntries(profile.uid, (rows) => {
+    if (!uid) return
+    return watchEntries(uid, (rows) => {
       setEntries(rows)
       setLoaded(true)
     })
-  }, [profile])
+  }, [uid])
 
   const summary = useProgress(entries)
   const today = entries.find((e) => e.date === todayISO())

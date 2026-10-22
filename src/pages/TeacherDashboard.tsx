@@ -360,22 +360,27 @@ export default function TeacherDashboard() {
   const [date, setDate] = useState(todayISO())
   const [tab, setTab] = useState<'students' | 'class'>('students')
 
+  // Depend on the uid, not the whole profile object: `profile` is replaced on
+  // every live snapshot, and re-subscribing on each replacement tore the
+  // listener down before Firestore delivered its first result.
+  const uid = profile?.uid
+
   useEffect(() => {
-    if (!profile) return
+    if (!uid) return
     // The roster is shared: every teacher manages every student.
     return watchAllStudents(setStudents)
-  }, [profile])
+  }, [uid])
 
   // Only the selected day's entries, for the "logged today" counter.
   useEffect(() => {
-    if (!profile) return
+    if (!uid) return
     return watchEntriesForDate(date, setDayEntries)
-  }, [profile, date])
+  }, [uid, date])
 
   // The class-progress tab needs the full history; load it when opened rather
   // than holding a permanent listener over every entry ever recorded.
   useEffect(() => {
-    if (tab !== 'class' || !profile) return
+    if (tab !== 'class' || !uid) return
     let cancelled = false
     setLoadingHistory(true)
     fetchAllEntries()
@@ -385,7 +390,7 @@ export default function TeacherDashboard() {
     return () => {
       cancelled = true
     }
-  }, [tab, profile, historyVersion])
+  }, [tab, uid, historyVersion])
 
   const loggedToday = useMemo(() => {
     const set = new Set<string>()
