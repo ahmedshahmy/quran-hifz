@@ -98,9 +98,15 @@ service cloud.firestore {
 
     // ---------------------------------------------------------------- entries
     match /entries/{entryId} {
+      // `resource == null` means the document does not exist yet. Without this
+      // guard, reading a day that has no entry yet (the normal case first thing
+      // in class) evaluates resource.data on null, which Firestore treats as a
+      // rule error and answers with PERMISSION_DENIED - so the client could
+      // never tell "no entry yet" apart from "not allowed".
       allow read: if signedIn() && (
-        resource.data.studentId == request.auth.uid   // the student themself
-        || resource.data.teacherId == request.auth.uid // their teacher
+        resource == null
+        || resource.data.studentId == request.auth.uid   // the student themself
+        || resource.data.teacherId == request.auth.uid   // their teacher
       );
 
       // Only a teacher writes hifz, and only on their own behalf.

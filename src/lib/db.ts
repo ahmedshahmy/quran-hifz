@@ -4,7 +4,6 @@ import {
   getDoc,
   getDocs,
   setDoc,
-  updateDoc,
   deleteDoc,
   onSnapshot,
   query,
@@ -180,21 +179,21 @@ export async function saveEntry(params: {
 }): Promise<void> {
   const id = entryId(params.studentId, params.date)
   const ref = doc(db, ENTRIES, id)
-  const existing = await getDoc(ref)
   const body = normalizeEntry(params)
-  if (existing.exists()) {
-    await updateDoc(ref, { ...body, updatedAt: Date.now() })
-  } else {
-    await setDoc(ref, {
+  // A single merge write covers both "first log of the day" and "re-save", so
+  // saving never depends on first reading the document back.
+  await setDoc(
+    ref,
+    {
       id,
       studentId: params.studentId,
       teacherId: params.teacherId,
       date: params.date,
       ...body,
-      createdAt: Date.now(),
       updatedAt: Date.now(),
-    })
-  }
+    },
+    { merge: true },
+  )
 }
 
 export async function getEntry(studentId: string, date: string): Promise<Entry | null> {
