@@ -15,7 +15,9 @@ export default function Footer({ tone = 'light' }: { tone?: 'light' | 'dark' }) 
       className="mx-auto w-full max-w-lg px-4 pt-8"
       style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
     >
-      <p className={`text-center text-[10px] leading-relaxed ${base}`}>
+      {/* The max width keeps the credit clear of the floating "+" button on the
+          teacher dashboard, which overlays the bottom-right corner. */}
+      <p className={`mx-auto max-w-[13.5rem] text-center text-[10px] leading-relaxed ${base}`}>
         By Ahamed Shahmy -{' '}
         <a
           href="mailto:maa.shahmy@gmail.com"
