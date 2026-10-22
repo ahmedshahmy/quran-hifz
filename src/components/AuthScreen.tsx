@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import Footer from './Footer'
 
 type Mode = 'login' | 'teacher' | 'student'
 
@@ -213,6 +214,8 @@ export default function AuthScreen() {
                 : 'No class code yet? Ask your teacher to add you.'}
           </p>
         </div>
+
+        <Footer />
       </div>
     </div>
   )

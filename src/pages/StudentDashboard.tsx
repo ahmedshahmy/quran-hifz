@@ -8,6 +8,7 @@ import { formatRange, countAyahs } from '../lib/quran'
 import { useProgress } from '../lib/progress'
 import { AppHeader } from '../components/Ui'
 import ProgressPanel from '../components/ProgressPanel'
+import Footer from '../components/Footer'
 
 function prettyDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
@@ -299,6 +300,8 @@ export default function StudentDashboard() {
           </>
         )}
       </div>
+
+      <Footer />
     </div>
   )
 }

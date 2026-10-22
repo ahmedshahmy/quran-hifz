@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { createStudentProfile } from '../lib/db'
 import { authErrorMessage } from '../context/AuthContext'
+import Footer from './Footer'
 
 /**
  * Shown when someone is signed in but has no class profile.
@@ -111,6 +112,8 @@ export default function FinishSetup() {
         >
           Log out
         </button>
+
+        <Footer />
       </div>
     </div>
   )

@@ -9,6 +9,7 @@ import {
 } from '../lib/db'
 import type { Entry, UserDoc } from '../lib/types'
 import { AppHeader, ClassCodeChip, EmptyState, Sheet } from '../components/Ui'
+import Footer from '../components/Footer'
 import EntryEditor from './EntryEditor'
 import ProgressPanel from '../components/ProgressPanel'
 import { summarize } from '../lib/progress'
@@ -559,6 +560,8 @@ export default function TeacherDashboard() {
             )}
           </div>
         )}
+
+        <Footer />
       </div>
 
       {/* Floating add button */}
