@@ -349,6 +349,10 @@ function StudentRow({
 export default function TeacherDashboard() {
   const { profile, logout } = useAuth()
   const [students, setStudents] = useState<UserDoc[]>([])
+  // Distinguishes "the class really is empty" from "the first snapshot has not
+  // arrived yet" - on a slow network Firestore can take several seconds, and an
+  // empty list would otherwise look like the roster was wiped.
+  const [rosterLoaded, setRosterLoaded] = useState(false)
   const [dayEntries, setDayEntries] = useState<Entry[]>([])
   const [allEntries, setAllEntries] = useState<Entry[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
@@ -368,7 +372,10 @@ export default function TeacherDashboard() {
   useEffect(() => {
     if (!uid) return
     // The roster is shared: every teacher manages every student.
-    return watchAllStudents(setStudents)
+    return watchAllStudents((rows) => {
+      setStudents(rows)
+      setRosterLoaded(true)
+    })
   }, [uid])
 
   // Only the selected day's entries, for the "logged today" counter.
@@ -510,7 +517,12 @@ export default function TeacherDashboard() {
             </div>
 
             <div className="space-y-2 px-4 py-4">
-              {students.length === 0 ? (
+              {!rosterLoaded ? (
+                <div className="flex flex-col items-center gap-3 py-16">
+                  <div className="spinner h-7 w-7 rounded-full border-2 border-brand-200 border-t-brand-700" />
+                  <p className="text-[11px] text-slate-400">Loading students…</p>
+                </div>
+              ) : students.length === 0 ? (
                 <EmptyState
                   icon="👥"
                   title="No students yet"
