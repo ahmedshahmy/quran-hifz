@@ -17,7 +17,7 @@ export default function Footer({ tone = 'light' }: { tone?: 'light' | 'dark' }) 
     >
       {/* The max width keeps the credit clear of the floating "+" button on the
           teacher dashboard, which overlays the bottom-right corner. */}
-      <p className={`mx-auto max-w-[13.5rem] text-center text-[10px] leading-relaxed ${base}`}>
+      <p className={`mx-auto max-w-[13.5rem] text-center text-[10px] leading-relaxed sm:max-w-none ${base}`}>
         By Ahamed Shahmy -{' '}
         <a
           href="mailto:maa.shahmy@gmail.com"
