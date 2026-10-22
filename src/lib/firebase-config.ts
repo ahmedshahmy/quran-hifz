@@ -32,12 +32,12 @@ const fromEnv: FirebaseConfig = {
 
 /** Values pasted here are used when the env vars above are absent. */
 const inline: FirebaseConfig = {
-  apiKey: 'PASTE_API_KEY',
-  authDomain: 'PASTE_PROJECT.firebaseapp.com',
-  projectId: 'PASTE_PROJECT_ID',
-  storageBucket: 'PASTE_PROJECT.appspot.com',
-  messagingSenderId: 'PASTE_SENDER_ID',
-  appId: 'PASTE_APP_ID',
+  apiKey: 'AIzaSyC8TeHx1wGOUzdjNJjP1JYgtCh41PIE1vA',
+  authDomain: 'hifz-85506.firebaseapp.com',
+  projectId: 'hifz-85506',
+  storageBucket: 'hifz-85506.firebasestorage.app',
+  messagingSenderId: '880364344478',
+  appId: '1:880364344478:web:fb77c0d337936d1653d78f',
 }
 
 export const firebaseConfig: FirebaseConfig = {
