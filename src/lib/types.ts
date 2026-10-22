@@ -43,6 +43,8 @@ export interface Entry extends HifzBuckets {
   date: string
   note?: string
   grade?: string
+  /** Name of the teacher who last saved this day. */
+  teacherName?: string
   createdAt?: number
   updatedAt?: number
 }

@@ -124,6 +124,11 @@ function DayCard({ entry, defaultOpen }: { entry: Entry; defaultOpen?: boolean }
               <b>Teacher note:</b> {entry.note}
             </p>
           ) : null}
+          {entry.teacherName ? (
+            <p className="mt-2 text-[10px] font-medium text-slate-400">
+              Logged by {entry.teacherName}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -169,7 +174,7 @@ export default function StudentDashboard() {
     <div className="min-h-dvh bg-[#f6f7f6] pb-10">
       <AppHeader
         title={profile.name}
-        subtitle={profile.teacherName ? `Class of ${profile.teacherName}` : 'Student'}
+        subtitle={profile.teacherName ? `Added by ${profile.teacherName}` : 'Student'}
         onLogout={logout}
         right={
           streak > 0 ? (
@@ -216,7 +221,9 @@ export default function StudentDashboard() {
                       <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                         Today
                       </span>
-                      <span className="text-[11px] text-slate-400">recorded by your teacher</span>
+                      <span className="text-[11px] text-slate-400">
+                        {today.teacherName ? `by ${today.teacherName}` : 'recorded by your teacher'}
+                      </span>
                     </div>
                     <BucketLine entry={today} />
                     {today.note ? (

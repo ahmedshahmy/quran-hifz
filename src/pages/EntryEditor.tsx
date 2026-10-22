@@ -26,6 +26,7 @@ const EMPTY: HifzBuckets = { newHifz: [], recentHifz: [], oldHifz: [] }
 export default function EntryEditor({
   student,
   teacherId,
+  teacherName,
   open,
   initialDate,
   onClose,
@@ -33,6 +34,8 @@ export default function EntryEditor({
 }: {
   student: UserDoc | null
   teacherId: string
+  /** Recorded on the entry so students see which teacher marked their work. */
+  teacherName: string
   open: boolean
   initialDate: string
   onClose: () => void
@@ -107,6 +110,7 @@ export default function EntryEditor({
         recentHifz: buckets.recentHifz,
         oldHifz: buckets.oldHifz,
         note,
+        teacherName,
       })
       onSaved()
       onClose()

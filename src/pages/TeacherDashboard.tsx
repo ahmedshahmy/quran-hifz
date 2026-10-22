@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuth, authErrorMessage } from '../context/AuthContext'
 import {
   addStudent,
+  fetchAllEntries,
   removeStudent,
   todayISO,
-  watchStudents,
-  watchTeacherEntries,
+  watchAllStudents,
+  watchEntriesForDate,
 } from '../lib/db'
 import type { Entry, UserDoc } from '../lib/types'
 import { AppHeader, ClassCodeChip, EmptyState, Sheet } from '../components/Ui'
@@ -184,11 +185,9 @@ function AddStudentSheet({
  */
 function RemoveStudentSheet({
   student,
-  teacherId,
   onClose,
 }: {
   student: UserDoc | null
-  teacherId: string
   onClose: () => void
 }) {
   const [busy, setBusy] = useState(false)
@@ -207,7 +206,7 @@ function RemoveStudentSheet({
     setBusy(true)
     setError('')
     try {
-      const { entries } = await removeStudent(student.uid, teacherId)
+      const { entries } = await removeStudent(student.uid)
       setDone(entries)
     } catch (e) {
       setError(authErrorMessage(e))
@@ -350,7 +349,10 @@ function StudentRow({
 export default function TeacherDashboard() {
   const { profile, logout } = useAuth()
   const [students, setStudents] = useState<UserDoc[]>([])
-  const [entries, setEntries] = useState<Entry[]>([])
+  const [dayEntries, setDayEntries] = useState<Entry[]>([])
+  const [allEntries, setAllEntries] = useState<Entry[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [historyVersion, setHistoryVersion] = useState(0)
   const [query, setQuery] = useState('')
   const [addOpen, setAddOpen] = useState(false)
   const [removing, setRemoving] = useState<UserDoc | null>(null)
@@ -360,25 +362,42 @@ export default function TeacherDashboard() {
 
   useEffect(() => {
     if (!profile) return
-    const a = watchStudents(profile.uid, setStudents)
-    const b = watchTeacherEntries(profile.uid, setEntries)
-    return () => {
-      a()
-      b()
-    }
+    // The roster is shared: every teacher manages every student.
+    return watchAllStudents(setStudents)
   }, [profile])
+
+  // Only the selected day's entries, for the "logged today" counter.
+  useEffect(() => {
+    if (!profile) return
+    return watchEntriesForDate(date, setDayEntries)
+  }, [profile, date])
+
+  // The class-progress tab needs the full history; load it when opened rather
+  // than holding a permanent listener over every entry ever recorded.
+  useEffect(() => {
+    if (tab !== 'class' || !profile) return
+    let cancelled = false
+    setLoadingHistory(true)
+    fetchAllEntries()
+      .then((rows) => !cancelled && setAllEntries(rows))
+      .catch(() => !cancelled && setAllEntries([]))
+      .finally(() => !cancelled && setLoadingHistory(false))
+    return () => {
+      cancelled = true
+    }
+  }, [tab, profile, historyVersion])
 
   const loggedToday = useMemo(() => {
     const set = new Set<string>()
-    for (const e of entries) if (e.date === date) set.add(e.studentId)
+    for (const e of dayEntries) set.add(e.studentId)
     return set
-  }, [entries, date])
+  }, [dayEntries])
 
   const classSummary = useMemo(() => {
-    // Aggregate every entry in the class so the teacher sees the class average.
+    // Aggregate the whole school's history for a class-wide view.
     const ids = new Set(students.map((s) => s.uid))
-    return summarize(entries.filter((e) => ids.has(e.studentId)))
-  }, [entries, students])
+    return summarize(allEntries.filter((e) => ids.has(e.studentId)))
+  }, [allEntries, students])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -519,7 +538,12 @@ export default function TeacherDashboard() {
           </>
         ) : (
           <div className="space-y-4 px-4 py-4">
-            {students.length === 0 ? (
+            {loadingHistory ? (
+              <div className="flex flex-col items-center gap-3 py-16">
+                <div className="spinner h-7 w-7 rounded-full border-2 border-brand-200 border-t-brand-700" />
+                <p className="text-[11px] text-slate-400">Loading class history…</p>
+              </div>
+            ) : students.length === 0 ? (
               <EmptyState
                 icon="📊"
                 title="Nothing to show yet"
@@ -533,7 +557,7 @@ export default function TeacherDashboard() {
                     Per student
                   </h3>
                   {students.map((s) => {
-                    const own = summarize(entries.filter((e) => e.studentId === s.uid))
+                    const own = summarize(allEntries.filter((e) => e.studentId === s.uid))
                     return (
                       <button
                         key={s.uid}
@@ -577,19 +601,19 @@ export default function TeacherDashboard() {
 
       <AddStudentSheet open={addOpen} onClose={() => setAddOpen(false)} teacher={profile} />
 
-      <RemoveStudentSheet
-        student={removing}
-        teacherId={profile.uid}
-        onClose={() => setRemoving(null)}
-      />
+      <RemoveStudentSheet student={removing} onClose={() => setRemoving(null)} />
 
       <EntryEditor
         student={editing}
         teacherId={profile.uid}
+        teacherName={profile.name}
         open={!!editing}
         initialDate={date}
         onClose={() => setEditing(null)}
-        onSaved={() => setEditing(null)}
+        onSaved={() => {
+          setEditing(null)
+          setHistoryVersion((v) => v + 1)
+        }}
       />
     </div>
   )

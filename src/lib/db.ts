@@ -136,8 +136,14 @@ export async function addStudent(
   return { uid }
 }
 
-export function watchStudents(teacherId: string, cb: (rows: UserDoc[]) => void): Unsubscribe {
-  const q = query(collection(db, USERS), where('teacherId', '==', teacherId))
+/**
+ * Every student in the school.
+ *
+ * Students are shared: any teacher sees the whole roster, not just the ones
+ * they personally added. The security rules grant this to teachers only.
+ */
+export function watchAllStudents(cb: (rows: UserDoc[]) => void): Unsubscribe {
+  const q = query(collection(db, USERS), where('role', '==', 'student'))
   return onSnapshot(
     q,
     (snap) => {
@@ -158,17 +164,10 @@ export function watchStudents(teacherId: string, cb: (rows: UserDoc[]) => void):
  * client SDK, so the login survives — the student can rejoin using the class
  * code, and the teacher can re-add them with a different email.
  */
-export async function removeStudent(
-  studentId: string,
-  teacherId: string,
-): Promise<{ entries: number }> {
-  // The rules only allow a teacher to list entries by their own teacherId, so
-  // the query filters on both fields; equality filters need no composite index.
-  const q = query(
-    collection(db, ENTRIES),
-    where('studentId', '==', studentId),
-    where('teacherId', '==', teacherId),
-  )
+export async function removeStudent(studentId: string): Promise<{ entries: number }> {
+  // Any teacher may remove a student now that the roster is shared. Their whole
+  // history goes with them so no orphaned records are left behind.
+  const q = query(collection(db, ENTRIES), where('studentId', '==', studentId))
   const snap = await getDocs(q)
   await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)))
   await deleteDoc(doc(db, USERS, studentId))
@@ -196,6 +195,8 @@ export async function saveEntry(params: {
   oldHifz: Entry['oldHifz']
   note?: string
   grade?: string
+  /** Name of the teacher saving, so students can see who marked their work. */
+  teacherName?: string
 }): Promise<void> {
   const id = entryId(params.studentId, params.date)
   const ref = doc(db, ENTRIES, id)
@@ -208,6 +209,7 @@ export async function saveEntry(params: {
       id,
       studentId: params.studentId,
       teacherId: params.teacherId,
+      teacherName: params.teacherName ?? '',
       date: params.date,
       ...body,
       updatedAt: Date.now(),
@@ -243,17 +245,27 @@ export function watchEntries(studentId: string, cb: (rows: Entry[]) => void): Un
   )
 }
 
-/** Entries the teacher recorded, used for "completed today" counts. No index needed. */
-export function watchTeacherEntries(
-  teacherId: string,
+/**
+ * One day's entries across the whole school — used for the "logged today"
+ * counter. Filtering by date keeps this to a handful of documents instead of
+ * loading every entry ever recorded.
+ */
+export function watchEntriesForDate(
+  date: string,
   cb: (rows: Entry[]) => void,
 ): Unsubscribe {
-  const q = query(collection(db, ENTRIES), where('teacherId', '==', teacherId))
+  const q = query(collection(db, ENTRIES), where('date', '==', date))
   return onSnapshot(
     q,
     (snap) => cb(snap.docs.map((d) => ({ ...(d.data() as Entry), id: d.id }))),
     () => cb([]),
   )
+}
+
+/** One-shot read of every entry, used by the class-progress tab. */
+export async function fetchAllEntries(): Promise<Entry[]> {
+  const snap = await getDocs(collection(db, ENTRIES))
+  return snap.docs.map((d) => ({ ...(d.data() as Entry), id: d.id }))
 }
 
 export { serverTimestamp }

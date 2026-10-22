@@ -13,7 +13,10 @@ Live app: `https://<your-username>.github.io/<repo-name>/`
 
 **For teachers**
 
-- Email/password login; a class is created automatically with a short join code.
+- Email/password login; a class code is issued automatically for students to join with.
+- **The roster is shared**: every teacher sees and manages every student, so a
+  student is never "owned" by one teacher. New teachers pick up the whole class
+  on day one, and two teachers can both log a student's hifz.
 - Add students yourself (the app creates their login on the spot, without
   logging you out), or share the class code so students can sign up.
 - Per-day log with three separate sections that mirror the classroom:
@@ -116,10 +119,12 @@ snapshots (`chapters.json`, `scripts/juzs.json`).
 ```
 users/{uid}          { role: 'teacher'|'student', name, email, classCode,
                        teacherId?, teacherName?, createdAt }
+                     (teacherId = who added them; not an access boundary)
 classes/{code}       { code, teacherId, teacherName, createdAt }
 entries/{sid_date}   { studentId, teacherId, date: 'YYYY-MM-DD',
                        newHifz[], recentHifz[], oldHifz[],
-                       note, createdAt, updatedAt }
+                       note, teacherName, createdAt, updatedAt }
+                     (teacherId/teacherName = who last saved the day)
 ```
 
 A hifz range is `{ surah: 2, from: 255, to: 257 }` — surah number plus inclusive
@@ -133,9 +138,14 @@ duplicate days, and re-saving updates rather than appends.
 
 | Actor | Can do |
 |---|---|
-| Teacher | Read/write entries and profiles of **their own** students only |
+| Teacher | Read **every** student and **every** entry; log and edit hifz; remove students |
 | Student | Read **their own** profile and entries only; cannot write hifz |
 | Anyone signed in | Look up a class code to join (teacher name + id only) |
+
+> **Because the roster is shared, a teacher account can read every student's
+> record.** Combined with open teacher sign-up, anyone who registers as a
+> teacher would see the whole school's data. Restrict teacher registration with
+> the allowlist (`config/teachers`) before sharing real student data.
 
 Students cannot promote themselves: profile updates keep `role`, `classCode`
 and `teacherId` unchanged.
