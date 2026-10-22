@@ -6,14 +6,12 @@ rules_version = '2';
 //   users/{uid}        profile + role ('teacher' | 'student')
 //   classes/{code}     6-char join code -> owning teacher
 //   entries/{sid_date} one daily log per student per day
-//   config/teachers    { emails: [...] } - optional teacher allowlist
 //
 // Guarantees:
 //   * A teacher can only read/write students that belong to them.
 //   * A student can only read their own profile and their own entries.
 //   * Only teachers can create or edit hifz entries.
 //   * Students cannot escalate their own role.
-//   * (Optional) Only allowlisted emails may register as a teacher.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -28,28 +26,6 @@ service cloud.firestore {
 
     function isTeacher() {
       return signedIn() && myProfile().role == 'teacher';
-    }
-
-    // ---- Teacher allowlist (opt-in) -------------------------------------
-    // Anyone can tap "I am a teacher", so by default any email can register a
-    // class. To lock that down, create a document:
-    //
-    //     config/teachers   { emails: ["you@example.com", "ustadh@example.com"] }
-    //
-    // Write the emails in lowercase - that is how Firebase normalises them.
-    // While that document does NOT exist, registration stays open; as soon as
-    // it exists, only the listed addresses can create a teacher profile.
-    // Existing teacher accounts keep working either way - this gates sign-up
-    // only. Clients cannot read or write config/* (see the deny-all at the end).
-    function teacherListPath() {
-      return /databases/$(database)/documents/config/teachers;
-    }
-
-    // Plain `in` on the token's email. Firebase Auth normalises password-account
-    // emails to lowercase, so the list must be written in lowercase too.
-    function teacherIsAllowed(email) {
-      return !exists(teacherListPath())
-        || email in get(teacherListPath()).data.emails;
     }
 
     // ---------------------------------------------------------------- classes
@@ -80,10 +56,7 @@ service cloud.firestore {
           uid == request.auth.uid
           && request.resource.data.uid == request.auth.uid
           && (
-            (
-              request.resource.data.role == 'teacher'
-              && teacherIsAllowed(request.auth.token.email)
-            )
+            request.resource.data.role == 'teacher'
             || (
               request.resource.data.role == 'student'
               && get(/databases/$(database)/documents/classes/$(request.resource.data.classCode))
