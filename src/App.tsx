@@ -3,12 +3,13 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import AuthScreen from './components/AuthScreen'
 import SetupNotice from './components/SetupNotice'
 import Splash from './components/Splash'
+import AuthStalled from './components/AuthStalled'
 import TeacherDashboard from './pages/TeacherDashboard'
 import StudentDashboard from './pages/StudentDashboard'
 import { isConfigMissing } from './lib/firebase-config'
 
 function Gate() {
-  const { firebaseUser, profile, loading, needsProfile, refreshProfile, logout } = useAuth()
+  const { firebaseUser, profile, loading, stalled, needsProfile, refreshProfile, logout } = useAuth()
   const [retrying, setRetrying] = useState(false)
 
   // Deep-linkable view state lives in the component tree, not the URL, so the
@@ -19,7 +20,7 @@ function Gate() {
 
   if (isConfigMissing) return <SetupNotice />
 
-  if (loading) return <Splash />
+  if (loading) return stalled ? <AuthStalled /> : <Splash />
 
   if (!firebaseUser) return <AuthScreen />
 

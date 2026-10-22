@@ -15,7 +15,10 @@ export interface AuthState {
   firebaseUser: User | null
   /** Firestore profile carrying the role; null while loading. */
   profile: UserDoc | null
-  loading: boolean  /** Set when signed in but no profile document exists yet. */
+  loading: boolean
+  /** True when auth never resolved (e.g. Authentication is not provisioned). */
+  stalled: boolean
+  /** Set when signed in but no profile document exists yet. */
   needsProfile: boolean
   error: string | null
 
@@ -38,6 +41,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Keeps the splash up while a signup finishes writing its profile, so the
   // "setup incomplete" gate never flashes mid-registration.
   const [registering, setRegistering] = useState(false)
+  // Guards against an endless splash: if Firebase Auth never reports its initial
+  // state (typical when the Authentication service is not provisioned), show a
+  // diagnostic screen instead of spinning forever.
+  const [stalled, setStalled] = useState(false)
+
+  useEffect(() => {
+    if (!loading) {
+      setStalled(false)
+      return
+    }
+    const t = setTimeout(() => setStalled(true), 8000)
+    return () => clearTimeout(t)
+  }, [loading])
   // Pending signup details, used if the profile write must be retried.
   const [pendingSignup, setPendingSignup] = useState<
     { kind: 'teacher'; name: string; email: string } | { kind: 'student'; name: string; email: string; code: string } | null
@@ -164,6 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         firebaseUser,
         profile,
         loading: loading || registering,
+        stalled,
         needsProfile,
         error,
         login,
