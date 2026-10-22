@@ -149,10 +149,30 @@ export function watchStudents(teacherId: string, cb: (rows: UserDoc[]) => void):
   )
 }
 
-export async function removeStudent(studentId: string): Promise<void> {
-  // Removes the class record only; the Firebase Auth account is left intact so
-  // an accidental delete never destroys the student's login.
+/**
+ * Removes a student from the teacher's class.
+ *
+ * Deletes their profile AND every hifz entry they have, so no orphaned records
+ * are left behind (Firestore charges for orphans' reads and they would become
+ * invisible dead weight). The Firebase Auth account cannot be deleted from the
+ * client SDK, so the login survives — the student can rejoin using the class
+ * code, and the teacher can re-add them with a different email.
+ */
+export async function removeStudent(
+  studentId: string,
+  teacherId: string,
+): Promise<{ entries: number }> {
+  // The rules only allow a teacher to list entries by their own teacherId, so
+  // the query filters on both fields; equality filters need no composite index.
+  const q = query(
+    collection(db, ENTRIES),
+    where('studentId', '==', studentId),
+    where('teacherId', '==', teacherId),
+  )
+  const snap = await getDocs(q)
+  await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)))
   await deleteDoc(doc(db, USERS, studentId))
+  return { entries: snap.size }
 }
 
 /* ------------------------------ entries ------------------------------- */

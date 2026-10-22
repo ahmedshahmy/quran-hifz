@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth, authErrorMessage } from '../context/AuthContext'
-import { addStudent, todayISO, watchStudents, watchTeacherEntries } from '../lib/db'
+import {
+  addStudent,
+  removeStudent,
+  todayISO,
+  watchStudents,
+  watchTeacherEntries,
+} from '../lib/db'
 import type { Entry, UserDoc } from '../lib/types'
 import { AppHeader, ClassCodeChip, EmptyState, Sheet } from '../components/Ui'
 import EntryEditor from './EntryEditor'
@@ -171,14 +177,123 @@ function AddStudentSheet({
   )
 }
 
+/**
+ * Confirmation before removing a student. Deleting the profile and every hifz
+ * entry is irreversible, so it is a two-step action with the name shown.
+ */
+function RemoveStudentSheet({
+  student,
+  teacherId,
+  onClose,
+}: {
+  student: UserDoc | null
+  teacherId: string
+  onClose: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [done, setDone] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (student) {
+      setError('')
+      setDone(null)
+    }
+  }, [student?.uid])
+
+  async function confirm() {
+    if (!student) return
+    setBusy(true)
+    setError('')
+    try {
+      const { entries } = await removeStudent(student.uid, teacherId)
+      setDone(entries)
+    } catch (e) {
+      setError(authErrorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Sheet
+      open={!!student}
+      onClose={onClose}
+      title={done === null ? 'Remove student?' : 'Student removed'}
+      subtitle={student?.name}
+    >
+      <div className="px-4 py-4">
+        {done === null ? (
+          <>
+            <p className="text-[13px] leading-relaxed text-slate-600">
+              <b>{student?.name}</b> will be removed from your class and{' '}
+              <b>all of their hifz records will be deleted</b>. This cannot be undone.
+            </p>
+            <ul className="mt-3 space-y-1.5 rounded-2xl bg-slate-50 p-3.5 text-[11px] leading-relaxed text-slate-500">
+              <li>• Their daily sabaq, sabqi and manzil history is erased.</li>
+              <li>• Their login still works — they can rejoin with your class code.</li>
+              <li>• To re-add them yourself, use a different email address.</li>
+            </ul>
+
+            {error ? (
+              <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-[13px] font-medium text-rose-700">
+                {error}
+              </p>
+            ) : null}
+
+            <button
+              onClick={confirm}
+              disabled={busy}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-600 py-3.5 text-sm font-bold text-white disabled:opacity-60"
+            >
+              {busy ? (
+                <>
+                  <span className="spinner h-4 w-4 rounded-full border-2 border-white/30 border-t-white" />
+                  Removing…
+                </>
+              ) : (
+                'Remove and delete their records'
+              )}
+            </button>
+            <button
+              onClick={onClose}
+              className="mt-2 w-full rounded-2xl py-3 text-xs font-semibold text-slate-500 active:bg-slate-100"
+            >
+              Keep student
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-[13px] leading-relaxed text-slate-600">
+              <b>{student?.name}</b> has been removed from your class.
+              {done > 0
+                ? ` ${done} day${done === 1 ? '' : 's'} of hifz records were deleted.`
+                : ' They had no hifz records.'}
+            </p>
+            <button
+              onClick={onClose}
+              className="mt-4 w-full rounded-2xl bg-brand-900 py-3.5 text-sm font-bold text-white"
+            >
+              Done
+            </button>
+          </>
+        )}
+      </div>
+      <div className="safe-bottom" />
+    </Sheet>
+  )
+}
+
 function StudentRow({
   student,
   logged,
   onClick,
+  onOptions,
 }: {
   student: UserDoc
   logged: boolean
   onClick: () => void
+  onOptions: () => void
 }) {
   const initials = student.name
     .split(/\s+/)
@@ -187,10 +302,11 @@ function StudentRow({
     .join('')
 
   return (
-    <button
-      onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-sm ring-1 ring-black/5 transition active:scale-[0.995]"
-    >
+    <div className="flex w-full items-stretch gap-0 rounded-2xl bg-white shadow-sm ring-1 ring-black/5 transition">
+      <button
+        onClick={onClick}
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-l-2xl p-3 text-left active:scale-[0.995]"
+      >
       <div
         className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-bold ${
           logged ? 'bg-brand-900 text-white' : 'bg-brand-50 text-brand-800'
@@ -211,10 +327,22 @@ function StudentRow({
           Due
         </span>
       )}
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cbd5d1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 18l6-6-6-6" />
-      </svg>
-    </button>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cbd5d1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 18l6-6-6-6" />
+        </svg>
+      </button>
+      <button
+        onClick={onOptions}
+        aria-label={`Options for ${student.name}`}
+        className="flex w-11 shrink-0 items-center justify-center rounded-r-2xl border-l border-slate-100 text-slate-400 active:bg-slate-50"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="12" cy="5" r="1.9" />
+          <circle cx="12" cy="12" r="1.9" />
+          <circle cx="12" cy="19" r="1.9" />
+        </svg>
+      </button>
+    </div>
   )
 }
 
@@ -224,6 +352,7 @@ export default function TeacherDashboard() {
   const [entries, setEntries] = useState<Entry[]>([])
   const [query, setQuery] = useState('')
   const [addOpen, setAddOpen] = useState(false)
+  const [removing, setRemoving] = useState<UserDoc | null>(null)
   const [editing, setEditing] = useState<UserDoc | null>(null)
   const [date, setDate] = useState(todayISO())
   const [tab, setTab] = useState<'students' | 'class'>('students')
@@ -381,6 +510,7 @@ export default function TeacherDashboard() {
                     student={s}
                     logged={loggedToday.has(s.uid)}
                     onClick={() => setEditing(s)}
+                    onOptions={() => setRemoving(s)}
                   />
                 ))
               )}
@@ -443,6 +573,12 @@ export default function TeacherDashboard() {
       </button>
 
       <AddStudentSheet open={addOpen} onClose={() => setAddOpen(false)} teacher={profile} />
+
+      <RemoveStudentSheet
+        student={removing}
+        teacherId={profile.uid}
+        onClose={() => setRemoving(null)}
+      />
 
       <EntryEditor
         student={editing}
