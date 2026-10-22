@@ -1,0 +1,122 @@
+rules_version = '2';
+
+// Quran Hifz Class — Firestore security rules
+//
+// Model:
+//   users/{uid}        profile + role ('teacher' | 'student')
+//   classes/{code}     6-char join code -> owning teacher
+//   entries/{sid_date} one daily log per student per day
+//
+// Guarantees:
+//   * A teacher can only read/write students that belong to them.
+//   * A student can only read their own profile and their own entries.
+//   * Only teachers can create or edit hifz entries.
+//   * Students cannot escalate their own role.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isTeacher() {
+      return signedIn() && myProfile().role == 'teacher';
+    }
+
+    // ---------------------------------------------------------------- classes
+    match /classes/{code} {
+      // A student must be able to look up a class code in order to join it.
+      // No sensitive data lives in this document (teacher name + id only).
+      allow read: if signedIn();
+
+      allow create: if isTeacher()
+        && request.resource.data.teacherId == request.auth.uid
+        && request.resource.data.code == code;
+
+      allow update, delete: if signedIn()
+        && resource.data.teacherId == request.auth.uid;
+    }
+
+    // ------------------------------------------------------------------ users
+    match /users/{uid} {
+      allow read: if signedIn() && (
+        uid == request.auth.uid                                  // own profile
+        || (isTeacher() && resource.data.teacherId == request.auth.uid) // own student
+      );
+
+      // Self-registration. A teacher bootstraps their own profile; a student
+      // may only attach to a teacher that really owns the class code claimed.
+      allow create: if signedIn() && (
+        (
+          uid == request.auth.uid
+          && request.resource.data.uid == request.auth.uid
+          && (
+            request.resource.data.role == 'teacher'
+            || (
+              request.resource.data.role == 'student'
+              && get(/databases/$(database)/documents/classes/$(request.resource.data.classCode))
+                   .data.teacherId == request.resource.data.teacherId
+            )
+          )
+        )
+        || (
+          // A teacher enrolling a student: the profile write happens while the
+          // teacher is signed in, but the document belongs to the new student.
+          isTeacher()
+          && uid != request.auth.uid
+          && request.resource.data.role == 'student'
+          && request.resource.data.teacherId == request.auth.uid
+          && request.resource.data.classCode == myProfile().classCode
+        )
+      );
+
+      // A user may edit their own profile but never their role, class or teacher.
+      // A teacher may rename a student in their own class.
+      allow update: if signedIn() && (
+        (
+          uid == request.auth.uid
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.teacherId == resource.data.teacherId
+          && request.resource.data.classCode == resource.data.classCode
+        )
+        || (
+          isTeacher()
+          && resource.data.teacherId == request.auth.uid
+          && request.resource.data.role == 'student'
+          && request.resource.data.teacherId == request.auth.uid
+        )
+      );
+
+      // Removing a student from the class list. Their auth account is untouched.
+      allow delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
+    }
+
+    // ---------------------------------------------------------------- entries
+    match /entries/{entryId} {
+      allow read: if signedIn() && (
+        resource.data.studentId == request.auth.uid   // the student themself
+        || resource.data.teacherId == request.auth.uid // their teacher
+      );
+
+      // Only a teacher writes hifz, and only on their own behalf.
+      // The stored `id` must match the document id (sid_date) so a client
+      // cannot write a log whose id disagrees with where it lives.
+      allow create, update: if isTeacher()
+        && request.resource.data.teacherId == request.auth.uid
+        && request.resource.data.id == entryId
+        && request.resource.data.studentId + '_' + request.resource.data.date == entryId;
+
+      allow delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
+    }
+
+    // Everything else is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

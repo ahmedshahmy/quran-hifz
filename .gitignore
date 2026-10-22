@@ -1,0 +1,27 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+node_modules
+dist
+dist-ssr
+preview-dist
+*.local
+
+# Build caches
+*.tsbuildinfo
+.vite
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+
+# Local Firebase config overrides
+.env
+.env.local
+.env.*.local
