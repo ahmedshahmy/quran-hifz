@@ -151,7 +151,10 @@ export function watchAllStudents(cb: (rows: UserDoc[]) => void): Unsubscribe {
       rows.sort((a, b) => a.name.localeCompare(b.name))
       cb(rows)
     },
-    () => cb([]),
+    (err) => {
+      console.error('[db] listener failed:', err?.code ?? err)
+      cb([])
+    },
   )
 }
 
@@ -241,7 +244,10 @@ export function watchEntries(studentId: string, cb: (rows: Entry[]) => void): Un
       rows.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
       cb(rows)
     },
-    () => cb([]),
+    (err) => {
+      console.error('[db] listener failed:', err?.code ?? err)
+      cb([])
+    },
   )
 }
 
@@ -258,7 +264,10 @@ export function watchEntriesForDate(
   return onSnapshot(
     q,
     (snap) => cb(snap.docs.map((d) => ({ ...(d.data() as Entry), id: d.id }))),
-    () => cb([]),
+    (err) => {
+      console.error('[db] listener failed:', err?.code ?? err)
+      cb([])
+    },
   )
 }
 
